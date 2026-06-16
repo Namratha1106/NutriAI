@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Water - NutriTracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+  <div class="app">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <h1 class="page-title" data-i18n="water_title">Water Intake Tracker</h1>
+      <div class="card" style="margin-bottom:20px">
+        <div class="water-hero">
+          <div class="water-circle"><svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2s-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z" />
+            </svg></div>
+          <div class="water-stats" id="wTitle">5 / 8 Glasses</div>
+          <div class="water-sub" id="wSub">3 more glasses to reach your goal</div>
+          <div style="width:80%;max-width:560px">
+            <div class="progress-bar">
+              <div class="fill" id="wFill" style="width:63%;background:linear-gradient(90deg,#60a5fa,#3b82f6)"></div>
+            </div>
+            <div style="text-align:center;color:#3b82f6;font-size:13px;margin-top:6px" id="wPct">63% Complete</div>
+          </div>
+          <div class="water-controls">
+            <button class="btn btn-circle btn-gray" onclick="bump(-1)">−</button>
+            <div class="water-count">
+              <div class="n" id="wN">5</div>
+              <div class="l" data-i18n="glasses">glasses</div>
+            </div>
+            <button class="btn btn-circle btn-primary" onclick="bump(1)">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="section-title" style="text-align:center" data-i18n="todays_progress">Today's Progress</h3>
+        <div class="glasses numbered" id="glasses"></div>
+      </div>
+      <div class="about-bmi" style="margin-top:20px">
+        <h3 data-i18n="hydration_tip">💧 Hydration Tip</h3>
+        <p data-i18n="hydration_desc">Drink a glass of water first thing in the morning to kick-start your metabolism
+          and rehydrate after sleep.</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    // Check if user is logged in, redirect to login if not
+    const token = localStorage.getItem("token");
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    const s = State.init();
+    mountSidebar('water');
+
+    async function render() {
+      let w = s.water;
+      const token = localStorage.getItem("token");
+
+      if (token) {
+        try {
+          const response = await fetchAPI("dashboard/");
+          if (response && response.ok) {
+            const data = await response.json();
+            if (data.water !== undefined) {
+              w = data.water;
+              s.water = w;
+              State.set(s);
+            }
+          }
+        } catch (e) {
+          console.warn("Could not sync water with server:", e);
+        }
+      }
+
+      document.getElementById('wTitle').textContent = `${w} / 8 ${i18n.t('glasses')}`;
+      const left = Math.max(0, 8 - w);
+      document.getElementById('wSub').textContent = left === 0 ? i18n.t('goal_reached') : i18n.t('more_glasses_goal', { left });
+      const pct = Math.round((w / 8) * 100);
+      document.getElementById('wFill').style.width = pct + '%';
+      document.getElementById('wPct').textContent = pct + '% ' + i18n.t('complete');
+      document.getElementById('wN').textContent = w;
+
+      const g = document.getElementById('glasses');
+      g.innerHTML = '';
+      for (let i = 0; i < 8; i++) {
+        const d = document.createElement('div');
+        d.className = 'glass' + (i < w ? ' filled' : '');
+        d.textContent = i + 1;
+        d.onclick = async () => {
+          const newWater = i + 1 === w ? i : i + 1;
+          s.water = newWater;
+          State.set(s);
+          render();
+
+          if (token) {
+            try {
+              await fetchAPI("update-water/", {
+                method: "POST",
+                body: JSON.stringify({ glasses: newWater })
+              });
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        };
+        g.appendChild(d);
+      }
+
+      i18n.translate();
+    }
+
+    async function bump(n) {
+      const w = Math.max(0, Math.min(8, s.water + n));
+      s.water = w;
+      State.set(s);
+      render();
+
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          await fetchAPI("update-water/", {
+            method: "POST",
+            body: JSON.stringify({ glasses: w })
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+
+    render();
+  </script>
+</body>
+
+</html>>
+
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Meals - NutriTracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+  <div class="app">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <div class="page-header" style="margin-bottom: 20px;">
+        <div>
+          <h1 class="page-title" style="margin-bottom:4px" data-i18n="meal_tracking">Meal Tracking</h1>
+          <div class="page-sub" id="totalSub" data-i18n="total_calories_today">Total: 0 calories today</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAdd()" data-i18n="add_meal">+ Add Meal</button>
+      </div>
+
+      <!-- AI recognition and voice logging grid -->
+      <div class="ai-tools-grid">
+        <!-- Image recognition card -->
+        <div class="card ai-card" style="display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h3 class="section-title" data-i18n="image_rec">Image Food Recognition</h3>
+            <div id="dropZone" class="upload-zone">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"
+                style="margin-bottom:10px;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+              </svg>
+              <p data-i18n="upload_desc" style="font-size: 13px; color: #64748b;">Upload or drag & drop a food image
+                here to auto-detect calories & nutrients.</p>
+              <input type="file" id="imageInput" accept="image/*" style="display:none;">
+              <div id="imagePreview"
+                style="display:none; margin-top:10px; width:100%; height:140px; border-radius:8px; background-size:cover; background-position:center; position:relative;">
+                <div id="scannerOverlay" class="scanner-line" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div id="analysisResult"
+              style="display:none; margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <h4 style="margin-bottom: 8px; color: #0f172a; font-size:14px;" data-i18n="detected">Detected Food:</h4>
+              <div style="font-size: 18px; font-weight: bold; color: #10b981; margin-bottom:10px;" id="resultFoodName">-
+              </div>
+              <div class="ai-stats">
+                <div class="ai-stat-box">
+                  <div class="lbl" data-i18n="calories">Calories</div>
+                  <div class="val" id="resultCalories">-</div>
+                </div>
+                <div class="ai-stat-box">
+                  <div class="lbl" data-i18n="protein">Protein</div>
+                  <div class="val" id="resultProtein">-</div>
+                </div>
+                <div class="ai-stat-box">
+                  <div class="lbl" data-i18n="confidence">Confidence</div>
+                  <div class="val" id="resultConfidence">-</div>
+                </div>
+              </div>
+              <div id="cloudStorageInfo" style="font-size:10px; color:#64748b; margin-top:8px; text-align:right;"></div>
+              <button class="btn btn-primary" style="width:100%; margin-top: 12px; justify-content:center;"
+                onclick="logAIDetectedFood()" data-i18n="log_meal">Log Meal</button>
+            </div>
+            <button class="btn btn-primary" id="analyzeBtn"
+              style="width:100%; margin-top:10px; display:none; justify-content:center;" onclick="analyzeImageFile()"
+              data-i18n="analyze_btn">Analyze Image</button>
+          </div>
+        </div>
+
+        <!-- Voice logging card -->
+        <div class="card ai-card"
+          style="display:flex; flex-direction:column; justify-content:space-between; min-height: 250px;">
+          <div>
+            <h3 class="section-title" data-i18n="voice_log">Voice Food Logging</h3>
+            <p style="font-size:13px; color:#64748b; margin-bottom:15px;" data-i18n="click_mic">Click the microphone and
+              start speaking (e.g. "I had grilled chicken salad and greek yogurt").</p>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:10px; margin:20px 0;">
+            <button id="micBtn" class="btn-primary"
+              style="width: 60px; height: 60px; border-radius: 50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; transition: all 0.2s;"
+              onclick="toggleVoiceLogging()">
+              <svg id="micIcon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+              </svg>
+            </button>
+            <div id="voiceStatus" style="font-size:12px; color:#64748b;" data-i18n="click_mic">Click to start recording
+            </div>
+          </div>
+          <div id="voiceTranscriptContainer"
+            style="display:none; padding:12px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+            <div style="font-size:11px; color:#64748b; margin-bottom:4px;" data-i18n="detected">Heard text:</div>
+            <p id="voiceTranscriptText" style="font-style:italic; font-size:13px; color:#0f172a; line-height: 1.4;"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meals list -->
+      <div class="meal-list" id="mealList"></div>
+    </main>
+  </div>
+
+  <div id="modal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;align-items:center;justify-content:center;">
+    <div class="card" style="width:420px;max-width:90vw">
+      <h3 class="section-title" data-i18n="add_meal">Add Meal</h3>
+      <div class="field"><label data-i18n="name">Name</label><input id="mName" placeholder="e.g., Avocado Toast"
+          oninput="autoCalculateCalories()" data-i18n="name"></div>
+      <div class="field"><label data-i18n="type">Type</label><input id="mType"
+          placeholder="Breakfast / Lunch / Dinner / Snack" data-i18n="type"></div>
+        <div class="field"><label data-i18n="time">Time</label><input id="mTime" placeholder="e.g., 9:00 AM"
+          data-i18n="time"></div>
+        <div class="field"><label data-i18n="date">Date</label><input id="mDate" type="date" placeholder="YYYY-MM-DD"></div>
+        <div class="field"><label data-i18n="calories_auto">Calories (auto-calculated)</label><input id="mCal"
+          type="number" placeholder="Auto-calculated" readonly style="background:#f5f5f5" data-i18n="calories_auto">
+        </div>
+      <div class="field"><label data-i18n="protein_g">Protein (g)</label><input id="mProt" type="number"
+          placeholder="Protein in grams" data-i18n="protein_g"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="btn btn-gray" onclick="closeAdd()" data-i18n="cancel">Cancel</button>
+        <button class="btn btn-primary" onclick="addMeal()" data-i18n="add">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    // Check if user is logged in. Do not redirect — allow anonymous image analysis.
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.info('User not logged in; image analysis will run anonymously (results won\'t be saved).');
+    }
+
+    const s = State.init();
+    mountSidebar('meals');
+
+    function iconFor(type) {
+      const t = (type || '').toLowerCase();
+      if (t.includes('break')) return MealIcons.coffee;
+      if (t.includes('snack')) return MealIcons.apple;
+      return MealIcons.sun;
+    }
+
+    function render() {
+      const data = State.get();
+      const list = document.getElementById('mealList');
+      list.innerHTML = '';
+      data.meals.forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'meal-item';
+
+        const protText = m.prot ? ` • ${m.prot}g protein` : '';
+        const dateText = m.date ? ` • ${m.date}` : '';
+
+        el.innerHTML = `<div class="icon green" style="display:flex;align-items:center;justify-content:center;width:44px;height:44px">${iconFor(m.type)}</div>
+      <div class="meal-info">
+        <div class="name">${m.name}</div>
+        <div class="meta">${m.type} • ${m.time}${dateText}${protText}</div>
+      </div>
+      <div class="meal-cal">${m.cal} cal</div>
+      <button class="btn-danger-ghost" title="Delete" onclick="delMeal(${m.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>`;
+        list.appendChild(el);
+      });
+      const total = data.meals.reduce((a, m) => a + (m.cal || 0), 0);
+      document.getElementById('totalSub').textContent = i18n.t('total_calories_today', { cal: total });
+
+      i18n.translate();
+    }
+
+    async function loadMeals() {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const data = await fetchAPI("meals/");
+          if (data && Array.isArray(data)) {
+            const mapped = data.map(m => ({
+              id: m.id,
+              name: m.name,
+              type: m.meal_type || 'Lunch',
+              time: m.time || m.meal_time || '',
+              date: m.date || '',
+              cal: m.calories || 0,
+              prot: m.protein || 0
+            }));
+            s.meals = mapped;
+            State.set(s);
+          }
+        } catch (e) {
+          console.warn("Could not load meals from server:", e);
+        }
+      }
+      render();
+    }
+
+    async function delMeal(id) {
+      s.meals = s.meals.filter(m => m.id !== id);
+      State.set(s);
+      render();
+
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          await fetchAPI("delete-meal/", {
+            method: "POST",
+            body: JSON.stringify({ meal_id: id })
+          });
+          loadMeals();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+
+    function openAdd() {
+      document.getElementById('modal').style.display = 'flex';
+      // default date to today
+      const today = new Date().toISOString().slice(0,10);
+      const dateEl = document.getElementById('mDate');
+      if (dateEl) dateEl.value = today;
+
+      // default time to current time in HH:MM AM/PM format
+      const now = new Date();
+      let hours = now.getHours();
+      let minutes = now.getMinutes();
+      let ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+      let timeStr = hours + ':' + minutes + ' ' + ampm;
+      const timeEl = document.getElementById('mTime');
+      if (timeEl) {
+        timeEl.value = timeStr;
+        // Auto-detect meal type based on time
+        autoDetectMealType(timeStr);
+      }
+    }
+
+    function autoDetectMealType(timeStr) {
+      // Parse time to determine meal type
+      const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (match) {
+        let hour = parseInt(match[1]);
+        const minutes = parseInt(match[2]);
+        const ampm = match[3].toUpperCase();
+
+        // Convert to 24-hour format for comparison
+        if (ampm === 'PM' && hour !== 12) {
+          hour += 12;
+        } else if (ampm === 'AM' && hour === 12) {
+          hour = 0;
+        }
+
+        // Convert to decimal hour for precise comparison (e.g., 6:30 PM = 18.5)
+        const decimalHour = hour + minutes / 60;
+
+        // Determine meal type based on time ranges
+        let mealType = 'Snack';
+        if (decimalHour >= 5 && decimalHour < 12) {
+          mealType = 'Breakfast';
+        } else if (decimalHour >= 12 && decimalHour < 16) {
+          mealType = 'Lunch';
+        } else if (decimalHour >= 16 && decimalHour < 18.5) {
+          mealType = 'Snack';
+        } else if (decimalHour >= 18.5 && decimalHour < 23) {
+          mealType = 'Dinner';
+        } else {
+          mealType = 'Snack';
+        }
+
+        const typeEl = document.getElementById('mType');
+        if (typeEl) {
+          typeEl.value = mealType;
+        }
+      }
+    }
+    function closeAdd() { document.getElementById('modal').style.display = 'none';['mName', 'mType', 'mTime', 'mCal', 'mProt', 'mDate'].forEach(i => { const el = document.getElementById(i); if (el) el.value = ''; }); }
+
+    // Add event listener to time input for auto-detection
+    const timeInput = document.getElementById('mTime');
+    if (timeInput) {
+      timeInput.addEventListener('input', function() {
+        const timeStr = this.value.trim();
+        if (timeStr.match(/\d{1,2}:\d{2}\s*(AM|PM)/i)) {
+          autoDetectMealType(timeStr);
+        }
+      });
+    }
+
+    // Calorie & Protein lookup database
+    const calorieDatabase = {
+      'oatmeal': { cal: 150, prot: 5 },
+      'oatmeal with berries': { cal: 250, prot: 6 },
+      'avocado toast': { cal: 280, prot: 5 },
+      'toast': { cal: 150, prot: 4 },
+      'eggs': { cal: 155, prot: 13 },
+      'scrambled eggs': { cal: 180, prot: 12 },
+      'fried eggs': { cal: 200, prot: 12 },
+      'omelette': { cal: 220, prot: 14 },
+      'pancakes': { cal: 350, prot: 6 },
+      'yogurt': { cal: 100, prot: 4 },
+      'greek yogurt': { cal: 130, prot: 12 },
+      'greek yogurt and nuts': { cal: 200, prot: 15 },
+      'smoothie': { cal: 200, prot: 3 },
+      'banana': { cal: 105, prot: 1 },
+      'apple': { cal: 95, prot: 0 },
+      'chicken': { cal: 165, prot: 31 },
+      'grilled chicken': { cal: 180, prot: 31 },
+      'grilled chicken salad': { cal: 350, prot: 25 },
+      'chicken breast': { cal: 165, prot: 31 },
+      'salmon': { cal: 208, prot: 20 },
+      'grilled salmon': { cal: 350, prot: 24 },
+      'tuna': { cal: 130, prot: 28 },
+      'steak': { cal: 275, prot: 25 },
+      'hamburger': { cal: 350, prot: 18 },
+      'spaghetti': { cal: 220, prot: 8 },
+      'pizza': { cal: 285, prot: 12 },
+      'rice': { cal: 206, prot: 4 },
+      'salad': { cal: 150, prot: 2 },
+      'soup': { cal: 150, prot: 5 },
+      'water': { cal: 0, prot: 0 }
+    };
+
+    function autoCalculateCalories() {
+      const name = document.getElementById('mName').value.toLowerCase().trim();
+      const calField = document.getElementById('mCal');
+      const protField = document.getElementById('mProt');
+
+      if (!name) {
+        calField.value = '';
+        protField.value = '';
+        return;
+      }
+
+      let match = null;
+      if (calorieDatabase[name]) {
+        match = calorieDatabase[name];
+      } else {
+        for (const [food, info] of Object.entries(calorieDatabase)) {
+          if (name.includes(food) || food.includes(name)) {
+            match = info;
+            break;
+          }
+        }
+      }
+
+      if (match) {
+        calField.value = match.cal;
+        protField.value = match.prot;
+      } else {
+        // Estimations
+        let estCal = 200;
+        let estProt = 5;
+        if (name.includes('salad')) { estCal = 200; estProt = 3; }
+        else if (name.includes('chicken') || name.includes('salmon') || name.includes('beef') || name.includes('steak')) { estCal = 280; estProt = 24; }
+        else if (name.includes('egg')) { estCal = 150; estProt = 12; }
+        else if (name.includes('yogurt')) { estCal = 130; estProt = 10; }
+        else if (name.includes('shake') || name.includes('smoothie')) { estCal = 220; estProt = 8; }
+        else if (name.includes('bread') || name.includes('toast')) { estCal = 150; estProt = 4; }
+
+        calField.value = estCal;
+        protField.value = estProt;
+      }
+    }
+
+    async function addMeal() {
+      const name = document.getElementById('mName').value.trim();
+      const type = document.getElementById('mType').value.trim() || 'Meal';
+      let time = document.getElementById('mTime').value.trim();
+      const date = document.getElementById('mDate').value || '';
+      const cal = parseInt(document.getElementById('mCal').value) || 0;
+      const prot = parseInt(document.getElementById('mProt').value) || 0;
+      if (!name) return;
+
+      // If no time provided, use current time
+      if (!time) {
+        const now = new Date();
+        let hours = now.getHours();
+        let minutes = now.getMinutes();
+        let ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        minutes = minutes < 10 ? '0' + minutes : minutes;
+        time = hours + ':' + minutes + ' ' + ampm;
+      }
+
+      s.meals.push({ id: Date.now(), name, type, time, cal, prot, date });
+      State.set(s); closeAdd(); render();
+
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          await fetchAPI("add-meal/", {
+            method: "POST",
+            body: JSON.stringify({ name, calories: cal, protein: prot, meal_type: type, meal_time: time, date: date })
+          });
+          loadMeals();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+
+    // Drag & Drop event bindings
+    const dropZone = document.getElementById('dropZone');
+    const imageInput = document.getElementById('imageInput');
+
+    dropZone.onclick = () => imageInput.click();
+
+    dropZone.ondragover = (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#10b981';
+    };
+    dropZone.ondragleave = () => {
+      dropZone.style.borderColor = '#cbd5e1';
+    };
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#cbd5e1';
+      const file = e.dataTransfer.files[0];
+      if (file) handleImageFile(file);
+    };
+
+    imageInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) handleImageFile(file);
+    };
+
+    let selectedImageFile = null;
+    function handleImageFile(file) {
+      selectedImageFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const preview = document.getElementById('imagePreview');
+        preview.style.backgroundImage = `url(${e.target.result})`;
+        preview.style.display = 'block';
+        document.getElementById('analyzeBtn').style.display = 'block';
+        document.getElementById('analysisResult').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function analyzeImageFile() {
+      if (!selectedImageFile) return;
+      
+      // Allow anonymous analysis even if no token is present. If the user is not
+      // logged in, results won't be persisted to their account.
+      const token = localStorage.getItem("token");
+
+      const scanner = document.getElementById('scannerOverlay');
+      scanner.style.display = 'block';
+      document.getElementById('analyzeBtn').textContent = i18n.t("analyzing");
+      document.getElementById('analyzeBtn').disabled = true;
+
+      const formData = new FormData();
+      formData.append('image', selectedImageFile);
+
+      try {
+        const data = await fetchAPI("analyze-image/", {
+          method: "POST",
+          body: formData
+        });
+        console.log("Response data:", data);
+        
+        if (data && data.status === "success") {
+          document.getElementById('resultFoodName').textContent = data.food_name;
+          document.getElementById('resultCalories').textContent = `${data.calories} cal`;
+          document.getElementById('resultProtein').textContent = `${data.protein}g`;
+          document.getElementById('resultConfidence').textContent = `${Math.round(data.confidence * 100)}%`;
+
+          if (data.image_url) {
+            const isS3 = data.image_url.includes("s3.amazonaws.com") || data.image_url.includes("digitaloceanspaces");
+            document.getElementById('cloudStorageInfo').textContent = isS3 ? "☁️ Uploaded to Cloud Storage (S3)" : "📁 Saved to local server storage";
+          } else {
+            document.getElementById('cloudStorageInfo').textContent = "";
+          }
+
+          detectedFoodTemp = {
+            name: data.food_name,
+            calories: data.calories,
+            protein: data.protein,
+            image_url: data.image_url || null,
+            saved: false
+          };
+          document.getElementById('analysisResult').style.display = 'block';
+          document.getElementById('analyzeBtn').style.display = 'none';
+
+          await logAIDetectedFood();
+        } else {
+          alert(data.message || data.error || "Failed to analyze food image.");
+        }
+      } catch (err) {
+        console.error("Error:", err);
+        // Try a direct fetch as a fallback to improve diagnostics
+        try {
+          const API_BASE_FALLBACK = (location.protocol === 'file:' || location.origin === 'null') ? 'http://127.0.0.1:8000/api/' : '/api/';
+          const url = API_BASE_FALLBACK + 'analyze-image/';
+          console.debug('Fallback direct fetch to', url);
+          const fbHeaders = {};
+          if (token) fbHeaders['Authorization'] = 'Bearer ' + token;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: fbHeaders,
+            body: formData
+          });
+          const text = await res.text();
+          let parsed = null;
+          try { parsed = JSON.parse(text); } catch (e) { parsed = text; }
+          console.debug('Fallback response', res.status, parsed);
+          if (res.ok && parsed && parsed.status === 'success') {
+            const data = parsed;
+            document.getElementById('resultFoodName').textContent = data.food_name;
+            document.getElementById('resultCalories').textContent = `${data.calories} cal`;
+            document.getElementById('resultProtein').textContent = `${data.protein}g`;
+            document.getElementById('resultConfidence').textContent = `${Math.round(data.confidence * 100)}%`;
+            detectedFoodTemp = { name: data.food_name, calories: data.calories, protein: data.protein, image_url: data.image_url || null, saved: false };
+            document.getElementById('analysisResult').style.display = 'block';
+            document.getElementById('analyzeBtn').style.display = 'none';
+            if (localStorage.getItem('token')) {
+              await saveAIDetectedMeal();
+            }
+          } else {
+            alert('Analyze failed (fallback). Status: ' + res.status + '. Response: ' + JSON.stringify(parsed));
+          }
+        } catch (err2) {
+          console.error('Fallback error:', err2);
+          alert("Error communicating with server. Make sure the Django backend is running at http://127.0.0.1:8000 and CORS allows this origin.");
+        }
+      } finally {
+        scanner.style.display = 'none';
+        document.getElementById('analyzeBtn').textContent = i18n.t("analyze_btn");
+        document.getElementById('analyzeBtn').disabled = false;
+      }
+    }
+
+    let detectedFoodTemp = null;
+    async function saveAIDetectedMeal() {
+      if (!detectedFoodTemp || detectedFoodTemp.saved) return;
+
+      const now = new Date();
+      let timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      let mealType = 'Lunch';
+      const hour = now.getHours();
+      if (hour < 11) mealType = 'Breakfast';
+      else if (hour > 17) mealType = 'Dinner';
+
+      try {
+        const response = await fetchAPI("add-meal/", {
+          method: "POST",
+          body: JSON.stringify({
+            name: detectedFoodTemp.name,
+            calories: detectedFoodTemp.calories,
+            protein: detectedFoodTemp.protein,
+            meal_type: mealType,
+            meal_time: timeStr,
+            image_url: detectedFoodTemp.image_url || null
+          })
+        });
+        if (response && response.message === 'Meal added') {
+          detectedFoodTemp.saved = true;
+          loadMeals();
+          document.querySelector('#analysisResult button').textContent = 'Saved';
+          document.querySelector('#analysisResult button').disabled = true;
+        }
+      } catch (e) {
+        console.error('Auto-save analyzed meal failed:', e);
+      }
+    }
+
+    async function logAIDetectedFood() {
+      if (!detectedFoodTemp || detectedFoodTemp.saved) return;
+
+      const now = new Date();
+      // Format time as HH:MM AM/PM for consistency
+      let hours = now.getHours();
+      let minutes = now.getMinutes();
+      let ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+      let timeStr = hours + ':' + minutes + ' ' + ampm;
+
+      // Format date as YYYY-MM-DD
+      let dateStr = now.toISOString().slice(0, 10);
+
+      let mealType = 'Lunch';
+      const hour = now.getHours();
+      if (hour < 11) mealType = 'Breakfast';
+      else if (hour > 17) mealType = 'Dinner';
+
+      const state = State.get();
+      state.meals.push({
+        id: Date.now(),
+        name: detectedFoodTemp.name,
+        type: mealType,
+        time: timeStr,
+        date: dateStr,
+        cal: detectedFoodTemp.calories,
+        prot: detectedFoodTemp.protein,
+        image_url: detectedFoodTemp.image_url || null
+      });
+
+      State.set(state);
+      render();
+      detectedFoodTemp.saved = true;
+      const actionButton = document.querySelector('#analysisResult button');
+      if (actionButton) {
+        actionButton.textContent = 'Saved';
+        actionButton.disabled = true;
+      }
+
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          await fetchAPI("add-meal/", {
+            method: "POST",
+            body: JSON.stringify({
+              name: detectedFoodTemp.name,
+              calories: detectedFoodTemp.calories,
+              protein: detectedFoodTemp.protein,
+              meal_type: mealType,
+              meal_time: timeStr,
+              date: dateStr,
+              image_url: detectedFoodTemp.image_url || null
+            })
+          });
+          loadMeals();
+        } catch (e) {
+          console.error('Failed to save analyzed meal to server:', e);
+        }
+      }
+
+      selectedImageFile = null;
+      document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('analyzeBtn').style.display = 'none';
+      document.getElementById('analysisResult').style.display = 'none';
+    }
+
+    // Voice logging implementation
+    let recognition = null;
+    let isListening = false;
+
+    function toggleVoiceLogging() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech recognition is not supported in this browser. Please use Chrome.");
+        return;
+      }
+
+      const micBtn = document.getElementById("micBtn");
+      const voiceStatus = document.getElementById("voiceStatus");
+      const transcriptText = document.getElementById("voiceTranscriptText");
+      const transcriptContainer = document.getElementById("voiceTranscriptContainer");
+
+      if (isListening) {
+        recognition.stop();
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = i18n.lang === 'kn' ? 'kn-IN' : (i18n.lang === 'te' ? 'te-IN' : (i18n.lang === 'ta' ? 'ta-IN' : (i18n.lang === 'hi' ? 'hi-IN' : 'en-US')));
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        isListening = true;
+        micBtn.classList.add("pulse-mic");
+        voiceStatus.textContent = i18n.t("listening");
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        micBtn.classList.remove("pulse-mic");
+        voiceStatus.textContent = i18n.t("click_mic");
+      };
+
+      recognition.onerror = (e) => {
+        console.error(e);
+        voiceStatus.textContent = "Error: " + e.error;
+      };
+
+      recognition.onresult = async (event) => {
+        const speechResult = event.results[0][0].transcript;
+        transcriptText.textContent = speechResult;
+        transcriptContainer.style.display = "block";
+
+        voiceStatus.textContent = i18n.t("analyzing");
+        const token = localStorage.getItem("token");
+        if (token) {
+          try {
+            const data = await fetchAPI("parse-voice/", {
+              method: "POST",
+              body: JSON.stringify({ text: speechResult })
+            });
+            if (data && data.status === "success") {
+              voiceStatus.textContent = i18n.t("logged_via_voice");
+              loadMeals();
+            } else {
+              voiceStatus.textContent = i18n.t("no_foods_detected");
+            }
+          } catch (err) {
+            console.error(err);
+            voiceStatus.textContent = "Failed to sync with backend.";
+          }
+        } else {
+          voiceStatus.textContent = "Voice logging requires database session.";
+        }
+      };
+
+      recognition.start();
+    }
+
+    loadMeals();
+  </script>
+</body>
+
+</html>

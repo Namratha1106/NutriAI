@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Django backend",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/nutritracker/nutribackend/manage.py",
+      "args": ["runserver", "127.0.0.1:8000"],
+      "django": true,
+      "cwd": "${workspaceFolder}/nutritracker/nutribackend",
+      "justMyCode": true
+    }
+  ]
+}

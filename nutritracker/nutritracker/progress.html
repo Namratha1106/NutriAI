@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Progress - NutriTracker</title><link rel="stylesheet" href="css/styles.css">
+<script src="js/chart.umd.min.js"></script>
+</head>
+<body><div class="app"><div id="sidebar-mount"></div>
+<main class="main">
+  <h1 class="page-title" data-i18n="progress_title">Progress &amp; Analytics</h1>
+  <div class="stat-grid">
+    <div class="card stat-card"><div class="icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg></div><div class="label" data-i18n="weekly_avg_cal">Weekly Avg Calories</div><div class="value">1,886</div></div>
+    <div class="card stat-card"><div class="icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2s-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z"/></svg></div><div class="label" data-i18n="weekly_avg_water">Weekly Avg Water</div><div class="value">7.1 glasses</div></div>
+    <div class="card stat-card"><div class="icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg></div><div class="label" data-i18n="current_bmi">Current BMI</div><div class="value" id="bmiVal">22.5</div></div>
+    <div class="card stat-card"><div class="icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg></div><div class="label" data-i18n="days_on_track">Days on Track</div><div class="value">5/7</div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card"><h3 data-i18n="weekly_calorie">Weekly Calorie Intake</h3><canvas id="cal"></canvas></div>
+    <div class="chart-card"><h3 data-i18n="weekly_water">Weekly Water Intake</h3><canvas id="wat"></canvas></div>
+  </div>
+  <div class="chart-card" style="margin-top:20px"><h3 data-i18n="bmi_trend">BMI Trend (Weekly)</h3><canvas id="bmiChart"></canvas></div>
+</main></div>
+<script src="js/app.js"></script>
+<script>
+// Check if user is logged in, redirect to login if not
+const token = localStorage.getItem("token");
+if (!token) {
+  window.location.href = 'login.html';
+}
+
+State.init(); mountSidebar('progress');
+
+async function renderProgress() {
+  try {
+    const dash = await fetchAPI('dashboard/');
+    const analytics = await fetchAPI('analytics/');
+
+    // Update stat cards from real dashboard and analytics data
+    const statValues = document.querySelectorAll('.stat-card .value');
+    if (statValues && statValues.length >= 4) {
+      // Weekly avg calories from analytics
+      statValues[0].textContent = analytics && analytics.weekly_avg_calories != null ? `${Math.round(analytics.weekly_avg_calories).toLocaleString()} kcal` : '—';
+      // Weekly avg water from analytics
+      statValues[1].textContent = analytics && analytics.weekly_avg_water != null ? `${analytics.weekly_avg_water.toFixed(1)} glasses` : '—';
+      // Current BMI from analytics (or dashboard as fallback)
+      const bmi = analytics && analytics.current_bmi != null ? analytics.current_bmi : (dash && dash.bmi);
+      if (bmi !== null && bmi !== undefined && bmi !== 0) {
+        document.getElementById('bmiVal').textContent = Number(bmi).toFixed(1);
+      } else {
+        document.getElementById('bmiVal').textContent = 'Set height & weight';
+      }
+      // Days on track from analytics
+      statValues[3].textContent = analytics && analytics.days_on_track != null ? `${analytics.days_on_track}/7` : '—';
+    }
+
+    const hasCal = analytics && Array.isArray(analytics.calories_series) && analytics.calories_series.length > 0;
+    const hasWat = analytics && Array.isArray(analytics.water_series) && analytics.water_series.length > 0;
+    const hasBmi = analytics && Array.isArray(analytics.bmi_series) && analytics.bmi_series.length > 0;
+
+    // Calories chart
+    if (!hasCal) {
+      document.getElementById('cal').parentElement.innerHTML = '<div class="card" style="padding:20px">No real calorie data available.</div>';
+    } else {
+      const labels = analytics.days;
+      const datasets = [{ label: i18n.t('consumed'), data: analytics.calories_series, backgroundColor: '#10b981' }];
+      if (dash && dash.calorie_goal) datasets.push({ label: i18n.t('calorie_goal'), data: new Array(labels.length).fill(dash.calorie_goal), backgroundColor: '#e5e7eb' });
+      new Chart(document.getElementById('cal'), {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) { return ctx.dataset.label + ': ' + ctx.formattedValue + ' kcal'; }
+              }
+            }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 100 } }
+          }
+        },
+        plugins: [{
+          id: 'valueLabels',
+          afterDatasetsDraw: function(chart) {
+            const ctx = chart.ctx;
+            chart.data.datasets.forEach((dataset, dsIndex) => {
+              // only draw for the consumed series (first dataset)
+              if (dsIndex !== 0) return;
+              const meta = chart.getDatasetMeta(dsIndex);
+              meta.data.forEach((bar, idx) => {
+                const val = dataset.data[idx];
+                if (val === null || val === undefined) return;
+                const x = bar.x;
+                const y = bar.y - 6;
+                ctx.save();
+                ctx.fillStyle = '#111827';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(String(val), x, y);
+                ctx.restore();
+              });
+            });
+          }
+        }]
+      });
+    }
+
+    // Water chart
+    if (!hasWat) {
+      document.getElementById('wat').parentElement.innerHTML = '<div class="card" style="padding:20px">No real water data available.</div>';
+    } else {
+      new Chart(document.getElementById('wat'), { type: 'line', data: { labels: analytics.days, datasets: [{ label: i18n.t('glasses'), data: analytics.water_series, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', tension: .35, fill: true, pointRadius: 5, pointBackgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
+    }
+
+    // BMI trend
+    if (!hasBmi) {
+      document.getElementById('bmiChart').parentElement.innerHTML = '<div class="card" style="padding:20px">No BMI trend data available.</div>';
+    } else {
+      new Chart(document.getElementById('bmiChart'), { type: 'line', data: { labels: analytics.bmi_labels || [], datasets: [{ label: 'BMI', data: analytics.bmi_series, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.1)', tension: .35, fill: true, pointRadius: 5, pointBackgroundColor: '#10b981' }] }, options: { responsive: true, maintainAspectRatio: false } });
+    }
+
+  } catch (err) {
+    console.error('Failed to load progress data', err);
+    document.querySelectorAll('.stat-card .value').forEach(el => el.textContent = '—');
+    document.getElementById('bmiVal').textContent = '—';
+    document.getElementById('cal').parentElement.innerHTML = '<div class="card" style="padding:20px">Unable to load calorie data.</div>';
+    document.getElementById('wat').parentElement.innerHTML = '<div class="card" style="padding:20px">Unable to load water data.</div>';
+    document.getElementById('bmiChart').parentElement.innerHTML = '<div class="card" style="padding:20px">Unable to load BMI data.</div>';
+  }
+}
+
+renderProgress();
+</script></body></html>

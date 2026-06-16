@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard - NutriTracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+  <div class="app">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <h1 class="page-title" data-i18n="dashboard_title">Dashboard</h1>
+      <div class="stat-grid">
+        <div class="card stat-card">
+          <div class="icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 14s1.5-2 4-2 4 2 4 2M9 9h.01M15 9h.01M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z" />
+            </svg></div>
+          <div class="label" data-i18n="calories_left">Calories Left</div>
+          <div class="value" id="calLeft">2000</div>
+        </div>
+        <div class="card stat-card">
+          <div class="icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2s-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z" />
+            </svg></div>
+          <div class="label" data-i18n="water_glasses">Water Glasses</div>
+          <div class="value" id="waterStat">5/8</div>
+        </div>
+        <div class="card stat-card">
+          <div class="icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M12 6c1-2 3-3 5-3 0 2-1 4-3 5M12 22c-4 0-7-3-7-7 0-4 3-6 6-6 1 0 2 .3 2.5.7.5-.4 1.5-.7 2.5-.7 3 0 6 2 6 6 0 4-3 7-7 7" />
+            </svg></div>
+          <div class="label" data-i18n="meals_today">Meals Today</div>
+          <div class="value" id="mealCount">0</div>
+        </div>
+        <div class="card stat-card">
+          <div class="icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12h4l3-9 4 18 3-9h4" />
+            </svg></div>
+          <div class="label" data-i18n="bmi_label">BMI</div>
+          <div class="value" id="bmiStat">22.5</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <h3 class="section-title" data-i18n="calorie_goal">Daily Calorie Goal</h3>
+        <div class="progress-row"><span data-i18n="consumed">Consumed</span><span id="calText">0 / 2000 cal</span>
+        </div>
+        <div class="progress-bar">
+          <div class="fill" id="calFill" style="width:0%"></div>
+        </div>
+        <div class="progress-meta" id="calMeta">2000 calories remaining</div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title" data-i18n="water">Water Intake</h3>
+        <div class="glasses" id="glasses"></div>
+        <div class="progress-meta" style="margin-top:14px" id="waterMeta">5 of 8 glasses consumed</div>
+      </div>
+    </main>
+  </div>
+  <script src="js/app.js"></script>
+  <script>
+    // Check if user is logged in, redirect to login if not
+    const token = localStorage.getItem("token");
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    const s = State.init();
+    mountSidebar('dashboard');
+
+    async function render() {
+      let calorieGoal = s.calorieGoal;
+      let totalCal = s.meals.reduce((a, m) => a + (m.cal || m.calories || 0), 0);
+      let waterGlasses = s.water;
+      let mealsCount = s.meals.length;
+      let bmi = s.bmi;
+
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const response = await fetchAPI("dashboard/");
+          if (response && response.ok) {
+            const data = await response.json();
+            calorieGoal = data.calorie_goal || calorieGoal;
+            totalCal = data.total_calories !== undefined ? data.total_calories : totalCal;
+            waterGlasses = data.water !== undefined ? data.water : waterGlasses;
+            mealsCount = data.meals_count !== undefined ? data.meals_count : mealsCount;
+            bmi = data.bmi !== undefined ? data.bmi : bmi;
+
+            s.calorieGoal = calorieGoal;
+            s.water = waterGlasses;
+            s.bmi = bmi;
+            State.set(s);
+          }
+        } catch (e) {
+          console.warn("Could not sync dashboard with server, using local data:", e);
+        }
+      }
+
+      const left = Math.max(0, calorieGoal - totalCal);
+
+      document.getElementById('calLeft').textContent = left;
+      document.getElementById('mealCount').textContent = mealsCount;
+      document.getElementById('bmiStat').textContent = bmi;
+      document.getElementById('waterStat').textContent = `${waterGlasses}/8`;
+
+      document.getElementById('calText').textContent = `${totalCal} / ${calorieGoal} cal`;
+      document.getElementById('calFill').style.width = Math.min(100, (totalCal / calorieGoal) * 100) + '%';
+      document.getElementById('calMeta').textContent = `${left} ${i18n.t('calories_remaining')}`;
+      document.getElementById('waterMeta').textContent = `${waterGlasses} ${i18n.t('of')} 8 ${i18n.t('water_consumed')}`;
+
+      const g = document.getElementById('glasses');
+      g.innerHTML = '';
+
+      for (let i = 0; i < 8; i++) {
+        const d = document.createElement('div');
+        d.className = 'glass' + (i < waterGlasses ? ' filled' : '');
+        d.onclick = async () => {
+          const newWater = i + 1 === waterGlasses ? i : i + 1;
+          s.water = newWater;
+          State.set(s);
+          render();
+
+          if (token) {
+            try {
+              await fetchAPI("update-water/", {
+                method: "POST",
+                body: JSON.stringify({ glasses: newWater })
+              });
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        };
+        g.appendChild(d);
+      }
+
+      i18n.translate();
+    }
+    render();
+  </script>
+</body>
+
+</html>

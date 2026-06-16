@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Django localhost",
+      "type": "shell",
+      "command": "python",
+      "args": ["manage.py", "runserver", "127.0.0.1:8000"],
+      "options": {
+        "cwd": "${workspaceFolder}/nutritracker/nutribackend"
+      },
+      "problemMatcher": ["$python"],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}

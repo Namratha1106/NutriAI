@@ -23,3 +23,4 @@ Update project description in README
 Add installation instructions
 Improve README formatting
 Improve home page layout
+Add responsive design for mobile devices

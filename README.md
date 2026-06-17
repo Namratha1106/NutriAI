@@ -1,3 +1,3 @@
-inial commad
+initial command
 update file
 Added improvements

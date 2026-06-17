@@ -19,3 +19,4 @@ Weight History
 Meal History
 Water Intake History
 Health Status Assessment
+Update project description in README

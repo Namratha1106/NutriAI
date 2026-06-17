@@ -21,3 +21,4 @@ Water Intake History
 Health Status Assessment
 Update project description in README
 Add installation instructions
+Improve README formatting

@@ -18,3 +18,4 @@ Progress Tracking
 Weight History
 Meal History
 Water Intake History
+Health Status Assessment
